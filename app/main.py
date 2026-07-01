@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Tüm router'ları tek bir satırda, tek seferde import ediyoruz
-from app.api.endpoints import auth, category, product, cart, order
+from app.api.endpoints import auth, category, product, cart, order, payment
 
 app = FastAPI(title="E-Ticaret API", version="1.0.0")
 
@@ -21,6 +21,7 @@ app.include_router(category.router, prefix="/categories", tags=["Kategoriler"])
 app.include_router(product.router, prefix="/products", tags=["Ürünler"])
 app.include_router(cart.router, prefix="/cart", tags=["Sepet"])
 app.include_router(order.router, prefix="/orders", tags=["Siparişler"])
+app.include_router(payment.router, prefix="/payments", tags=["Ödeme"])
 
 @app.get("/")
 def root():
