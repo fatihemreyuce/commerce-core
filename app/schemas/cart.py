@@ -7,6 +7,9 @@ class CartItemCreate(BaseModel):
     variant_id: uuid.UUID
     quantity: int = 1
 
+class CartItemUpdate(BaseModel):
+    quantity: int
+
 class CartItemResponse(BaseModel):
     id: uuid.UUID
     variant_id: uuid.UUID
