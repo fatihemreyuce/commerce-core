@@ -38,16 +38,20 @@ def start_payment(
         items.append({"name": name, "unit_price": oi.unit_price, "quantity": oi.quantity})
 
     addr = order.shipping_address or {}
-    token = paytr.generate_iframe_token(
-        merchant_oid=order.id.hex,
-        email=current_user.email,
-        amount=order.total_amount,
-        user_ip=request.client.host if request.client else "0.0.0.0",
-        user_name=current_user.full_name or addr.get("name", "Müşteri"),
-        user_address=addr.get("address", "-"),
-        user_phone=addr.get("phone", "-"),
-        items=items,
-    )
+    # Fix B — ödeme sağlayıcısı hatalarını 502 ile sarmalıyoruz
+    try:
+        token = paytr.generate_iframe_token(
+            merchant_oid=order.id.hex,
+            email=current_user.email,
+            amount=order.total_amount,
+            user_ip=request.client.host if request.client else "0.0.0.0",
+            user_name=current_user.full_name or addr.get("name", "Müşteri"),
+            user_address=addr.get("address", "-"),
+            user_phone=addr.get("phone", "-"),
+            items=items,
+        )
+    except RuntimeError:
+        raise HTTPException(status_code=502, detail="Ödeme sağlayıcısına ulaşılamadı.")
 
     payment = db.query(Payment).filter(Payment.order_id == order.id).first()
     if not payment:
@@ -74,15 +78,35 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
     except ValueError:
         return Response(content="OK", media_type="text/plain")
 
-    order = db.query(Order).filter(Order.id == order_id).first()
-    payment = db.query(Payment).filter(Payment.order_id == order_id).first()
-    if not order or not payment:
-        return Response(content="OK", media_type="text/plain")
+    # Fix A — satır kilidi, tutar doğrulama ve durum koruması
+    try:
+        # 1. Satır kilidi — eş zamanlı çift işlemi önler
+        payment = (
+            db.query(Payment)
+            .filter(Payment.order_id == order_id)
+            .with_for_update()
+            .first()
+        )
+        order = db.query(Order).filter(Order.id == order_id).first()
 
-    payment.raw_webhook = post_data
+        # 2. Kayıt yoksa commit yapıp OK dön
+        if not order or not payment:
+            db.commit()
+            return Response(content="OK", media_type="text/plain")
 
-    if post_data.get("status") == "success":
-        if payment.paytr_status != "success":  # idempotent — iki kez düşürme
+        # 3. Ham webhook verisini kaydet
+        payment.raw_webhook = post_data
+
+        # 4. Beklenen tutar (kuruş)
+        expected_kurus = int((order.total_amount * 100).to_integral_value())
+
+        # 5. Başarılı ödeme — tüm koşullar sağlanmalı
+        if (
+            post_data.get("status") == "success"
+            and str(post_data.get("total_amount", "")) == str(expected_kurus)
+            and payment.paytr_status != "success"
+            and order.status == OrderStatus.pending
+        ):
             payment.paytr_status = "success"
             payment.paid_at = datetime.now(timezone.utc)
             order.status = OrderStatus.paid
@@ -94,8 +118,21 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
                 )
                 if variant:
                     variant.stock_qty = max(0, variant.stock_qty - oi.quantity)
-    else:
-        payment.paytr_status = "failed"
 
-    db.commit()
+        # 6. Başarısız ödeme — zaten başarılıysa dokunma
+        elif (
+            post_data.get("status") != "success"
+            and payment.paytr_status != "success"
+        ):
+            payment.paytr_status = "failed"
+
+        # 7. Commit
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        return Response(
+            content="PAYTR notification failed: server error", media_type="text/plain"
+        )
+
     return Response(content="OK", media_type="text/plain")

@@ -116,3 +116,81 @@ def test_webhook_basarisiz_odeme_stok_dokunmaz(client, db, user_headers, make_va
     db.expire_all()
     fresh = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
     assert fresh.stock_qty == 10
+
+
+def test_webhook_tutar_uyusmazsa_fulfillment_yapilmaz(client, db, user_headers, make_variant, monkeypatch):
+    """Geçerli hash ama yanlış tutar — stok ve sipariş durumu değişmemeli."""
+    from app.models.product import ProductVariant
+    from app.models.order import Order
+    import uuid
+    monkeypatch.setattr(
+        payment_endpoint.paytr, "generate_iframe_token", lambda **kwargs: "t"
+    )
+    variant, order = _make_order(client, user_headers, make_variant, stock=10, qty=3)
+    client.post(f"/payments/start/{order['id']}", headers=user_headers)
+
+    merchant_oid = uuid.UUID(order["id"]).hex
+    # Yanlış tutar — beklenen 30000 ama "999" gönderiyoruz
+    wrong_amount = "999"
+    h = _callback_hash(merchant_oid, "success", wrong_amount)
+    resp = client.post(
+        "/payments/callback",
+        data={"merchant_oid": merchant_oid, "status": "success",
+              "total_amount": wrong_amount, "hash": h},
+    )
+    assert resp.status_code == 200
+    assert resp.text == "OK"
+
+    db.expire_all()
+    fresh_variant = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
+    assert fresh_variant.stock_qty == 10  # stok değişmemeli
+    fresh_order = db.query(Order).filter(Order.id == uuid.UUID(order["id"])).first()
+    assert fresh_order.status.value == "pending"  # hâlâ beklemede
+
+
+def test_webhook_success_sonra_failed_bozmaz(client, db, user_headers, make_variant, monkeypatch):
+    """Başarılı ödemeden sonra gelen geç/yinelenen 'failed' callback ödemeyi bozmamalı."""
+    from app.models.product import ProductVariant
+    from app.models.order import Order
+    from app.models.payment import Payment
+    import uuid
+    monkeypatch.setattr(
+        payment_endpoint.paytr, "generate_iframe_token", lambda **kwargs: "t"
+    )
+    variant, order = _make_order(client, user_headers, make_variant, stock=10, qty=3)
+    client.post(f"/payments/start/{order['id']}", headers=user_headers)
+
+    merchant_oid = uuid.UUID(order["id"]).hex
+    total_amount = "30000"  # 300.00 TL × 100 = 30000 kuruş (doğru tutar)
+
+    # 1. Başarılı callback — siparişi ödenmiş yap, stoğu düşür
+    h_success = _callback_hash(merchant_oid, "success", total_amount)
+    resp1 = client.post(
+        "/payments/callback",
+        data={"merchant_oid": merchant_oid, "status": "success",
+              "total_amount": total_amount, "hash": h_success},
+    )
+    assert resp1.status_code == 200
+    assert resp1.text == "OK"
+
+    db.expire_all()
+    assert db.query(ProductVariant).filter(ProductVariant.id == variant.id).first().stock_qty == 7
+    assert db.query(Order).filter(Order.id == uuid.UUID(order["id"])).first().status.value == "paid"
+
+    # 2. Geç gelen "failed" callback — zaten başarılı; hiçbir şey değişmemeli
+    h_failed = _callback_hash(merchant_oid, "failed", total_amount)
+    resp2 = client.post(
+        "/payments/callback",
+        data={"merchant_oid": merchant_oid, "status": "failed",
+              "total_amount": total_amount, "hash": h_failed},
+    )
+    assert resp2.status_code == 200
+    assert resp2.text == "OK"
+
+    db.expire_all()
+    fresh_order = db.query(Order).filter(Order.id == uuid.UUID(order["id"])).first()
+    assert fresh_order.status.value == "paid"  # hâlâ ödendi
+    fresh_variant = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
+    assert fresh_variant.stock_qty == 7  # stok korundu
+    fresh_payment = db.query(Payment).filter(Payment.order_id == uuid.UUID(order["id"])).first()
+    assert fresh_payment.paytr_status == "success"  # ödeme durumu bozulmadı

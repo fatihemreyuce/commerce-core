@@ -70,7 +70,7 @@ def generate_iframe_token(
         "payment_amount": payment_amount,
         "paytr_token": paytr_token,
         "user_basket": user_basket,
-        "debug_on": 1,
+        "debug_on": 1 if settings.PAYTR_TEST_MODE else 0,
         "no_installment": no_installment,
         "max_installment": max_installment,
         "user_name": user_name,
