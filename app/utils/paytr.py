@@ -40,7 +40,7 @@ def generate_iframe_token(
     no_installment = "0"
     max_installment = "0"
     currency = "TL"
-    test_mode = str(settings.PAYTR_TEST_MODE)
+    test_mode = "1" if settings.PAYTR_TEST_MODE else "0"
 
     hash_str = (
         settings.PAYTR_MERCHANT_ID

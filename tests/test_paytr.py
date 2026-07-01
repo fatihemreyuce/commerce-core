@@ -39,6 +39,8 @@ def test_generate_iframe_token_basarili(monkeypatch):
     # tutar kuruşa çevrilmeli
     assert captured["data"]["payment_amount"] == 15000
     assert captured["data"]["merchant_oid"] == "abc123"
+    # test_mode PayTR'nin beklediği "1"/"0" string'i olmalı
+    assert captured["data"]["test_mode"] in ("1", "0")
 
 
 def test_generate_iframe_token_hata_firlatir(monkeypatch):
