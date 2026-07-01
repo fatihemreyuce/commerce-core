@@ -1,5 +1,8 @@
 from decimal import Decimal
 
+from app.core.security import create_access_token, get_password_hash
+from app.models.user import User, UserRole
+
 
 def _add_to_cart(client, headers, variant_id, qty):
     return client.post("/cart/items", headers=headers,
@@ -88,3 +91,41 @@ def test_admin_siparis_durumu_gunceller(client, user_headers, admin_headers, mak
                         json={"status": "shipped"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "shipped"
+
+
+def test_baska_normal_kullanici_siparis_detayini_goremez(client, db, user_headers, make_variant):
+    # Kullanici A siparis olusturur
+    variant = make_variant()
+    _add_to_cart(client, user_headers, variant.id, 1)
+    order = client.post("/orders/", headers=user_headers,
+                        json={"shipping_address": {"a": 1}}).json()
+
+    # Kullanici B olusturulur ve token uretilir
+    user2 = User(
+        email="user2@test.com",
+        full_name="Second User",
+        hashed_password=get_password_hash("secret123"),
+        role=UserRole.customer,
+        is_active=True,
+    )
+    db.add(user2)
+    db.commit()
+    db.refresh(user2)
+    user2_headers = {"Authorization": f"Bearer {create_access_token(subject=str(user2.id))}"}
+
+    # Kullanici B, Kullanici A'nin siparis detayini gorememeli
+    resp = client.get(f"/orders/{order['id']}", headers=user2_headers)
+    assert resp.status_code == 403
+
+
+def test_normal_kullanici_siparis_durumu_guncelleyemez(client, user_headers, make_variant):
+    # Kullanici A siparis olusturur
+    variant = make_variant()
+    _add_to_cart(client, user_headers, variant.id, 1)
+    order = client.post("/orders/", headers=user_headers,
+                        json={"shipping_address": {"a": 1}}).json()
+
+    # Normal kullanici siparis durumunu guncellemeye calisir → 403 beklenir
+    resp = client.patch(f"/orders/{order['id']}/status", headers=user_headers,
+                        json={"status": "shipped"})
+    assert resp.status_code == 403
