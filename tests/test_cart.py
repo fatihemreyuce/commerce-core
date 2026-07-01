@@ -1,5 +1,8 @@
 from decimal import Decimal
 
+from app.core.security import create_access_token, get_password_hash
+from app.models.user import User, UserRole
+
 
 def test_bos_sepet_getirilir(client, user_headers):
     resp = client.get("/cart/", headers=user_headers)
@@ -74,3 +77,53 @@ def test_sepet_bosaltilir(client, user_headers, make_variant):
 def test_giris_yapmadan_sepet_erisilemez(client):
     resp = client.get("/cart/")
     assert resp.status_code in (401, 403)
+
+
+def test_baska_kullanici_sepet_satirini_guncelleyemez(client, db, user_headers, make_variant):
+    # Kullanici A sepete urun ekler
+    variant = make_variant()
+    add = client.post("/cart/items", headers=user_headers,
+                      json={"variant_id": str(variant.id), "quantity": 1})
+    item_id = add.json()["items"][0]["id"]
+
+    # Kullanici B olusturulur ve token uretilir
+    user2 = User(
+        email="user2@test.com",
+        full_name="Second User",
+        hashed_password=get_password_hash("secret123"),
+        role=UserRole.customer,
+        is_active=True,
+    )
+    db.add(user2)
+    db.commit()
+    db.refresh(user2)
+    user2_headers = {"Authorization": f"Bearer {create_access_token(subject=str(user2.id))}"}
+
+    # Kullanici B, Kullanici A'nin sepet satirini guncelleyememeli
+    resp = client.put(f"/cart/items/{item_id}", headers=user2_headers, json={"quantity": 99})
+    assert resp.status_code == 404
+
+
+def test_baska_kullanici_sepet_satirini_silemez(client, db, user_headers, make_variant):
+    # Kullanici A sepete urun ekler
+    variant = make_variant()
+    add = client.post("/cart/items", headers=user_headers,
+                      json={"variant_id": str(variant.id), "quantity": 1})
+    item_id = add.json()["items"][0]["id"]
+
+    # Kullanici B olusturulur ve token uretilir
+    user2 = User(
+        email="user2@test.com",
+        full_name="Second User",
+        hashed_password=get_password_hash("secret123"),
+        role=UserRole.customer,
+        is_active=True,
+    )
+    db.add(user2)
+    db.commit()
+    db.refresh(user2)
+    user2_headers = {"Authorization": f"Bearer {create_access_token(subject=str(user2.id))}"}
+
+    # Kullanici B, Kullanici A'nin sepet satirini silememeli
+    resp = client.delete(f"/cart/items/{item_id}", headers=user2_headers)
+    assert resp.status_code == 404
