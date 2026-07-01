@@ -66,6 +66,7 @@ def test_webhook_basarili_stok_duser_ve_siparis_paid(client, db, user_headers, m
     assert resp.status_code == 200
     assert resp.text == "OK"
 
+    db.expire_all()
     fresh_variant = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
     assert fresh_variant.stock_qty == 7  # 10 - 3
     fresh_order = db.query(Order).filter(Order.id == uuid.UUID(order["id"])).first()
@@ -89,6 +90,7 @@ def test_webhook_gecersiz_hash_islem_yapmaz(client, db, user_headers, make_varia
     )
     assert resp.status_code == 200
     assert "PAYTR notification failed" in resp.text
+    db.expire_all()
     fresh = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
     assert fresh.stock_qty == 10  # değişmemeli
 
@@ -111,5 +113,6 @@ def test_webhook_basarisiz_odeme_stok_dokunmaz(client, db, user_headers, make_va
     )
     assert resp.status_code == 200
     assert resp.text == "OK"
+    db.expire_all()
     fresh = db.query(ProductVariant).filter(ProductVariant.id == variant.id).first()
     assert fresh.stock_qty == 10
