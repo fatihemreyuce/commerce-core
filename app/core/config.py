@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     PAYTR_MERCHANT_SALT: str
     PAYTR_TEST_MODE: int = 1
     PAYTR_CALLBACK_URL: str
-    
+    PAYTR_OK_URL: str = "https://yourdomain.com/payment/success"
+    PAYTR_FAIL_URL: str = "https://yourdomain.com/payment/fail"
+
     UPLOAD_DIR: str = "./uploads"
 
     # .env dosyasından okuması için gerekli ayar
