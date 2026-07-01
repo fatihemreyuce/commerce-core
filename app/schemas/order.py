@@ -15,6 +15,9 @@ class OrderItemResponse(BaseModel):
 class OrderCreate(BaseModel):
     shipping_address: Dict[str, Any]
 
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
+
 class OrderResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
