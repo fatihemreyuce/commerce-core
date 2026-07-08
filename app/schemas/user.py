@@ -22,3 +22,7 @@ class UserResponse(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class AdminUserCreate(UserCreate):
+    role: UserRole

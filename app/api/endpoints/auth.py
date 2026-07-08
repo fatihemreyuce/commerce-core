@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db
+from app.core.deps import get_db, require_admin
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, UserLogin
+from app.schemas.user import UserCreate, UserResponse, UserLogin, AdminUserCreate
 
 router = APIRouter()
 
@@ -43,7 +43,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
         )
     
     access_token = create_access_token(subject=str(user.id))
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -53,3 +53,29 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
             "role": user.role
         }
     }
+
+@router.post("/admin/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def admin_create_user(
+    user_in: AdminUserCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Sadece adminlerin erişebildiği kullanıcı oluşturma (rol seçilebilir)."""
+
+    existing = db.query(User).filter(User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bu email adresi sistemde zaten kayıtlı.",
+        )
+
+    db_user = User(
+        email=user_in.email,
+        full_name=user_in.full_name,
+        hashed_password=get_password_hash(user_in.password),
+        role=user_in.role,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
