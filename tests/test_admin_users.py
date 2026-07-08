@@ -54,7 +54,7 @@ def test_no_auth_forbidden(client):
             "role": "customer",
         },
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 401
 
 
 def test_duplicate_email_rejected(client, admin_headers):
