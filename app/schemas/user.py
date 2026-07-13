@@ -26,3 +26,7 @@ class UserLogin(BaseModel):
 
 class AdminUserCreate(UserCreate):
     role: UserRole
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
