@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import settings
+
 # Tüm router'ları tek bir satırda, tek seferde import ediyoruz
 from app.api.endpoints import auth, category, product, cart, order, payment
 
@@ -9,7 +11,7 @@ app = FastAPI(title="E-Ticaret API", version="1.0.0")
 # Frontend'in API'ye istek atabilmesi için CORS ayarları
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Canlıda buraya Frontend domaini yazılır
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

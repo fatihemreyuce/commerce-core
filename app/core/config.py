@@ -16,8 +16,14 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "./uploads"
 
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000"
+
     # .env dosyasından okuması için gerekli ayar
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
 
 # Proje genelinde ayarları 'settings' objesi üzerinden çağıracağız
 settings = Settings()
