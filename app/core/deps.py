@@ -34,6 +34,8 @@ def get_current_user(
     try:
         # Token'ı çözüyoruz (settings içindeki SECRET_KEY'i kullanıyoruz)
         payload = jwt.decode(token.credentials, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "access":
+            raise credentials_exception
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
