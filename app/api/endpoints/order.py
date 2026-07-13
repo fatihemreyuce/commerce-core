@@ -4,7 +4,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user, require_admin
+from app.core.deps import get_db, get_current_user, require_permission
+from app.core.permissions import Permission, has_permission
 from app.models.user import User, UserRole
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem, OrderStatus
@@ -75,7 +76,7 @@ def my_orders(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 
 @router.get("/admin/all", response_model=List[OrderResponse])
-def all_orders(db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
+def all_orders(db: Session = Depends(get_db), current_admin: User = Depends(require_permission(Permission.ORDER_READ_ALL))):
     """Tüm siparişleri listeler. Sadece Adminler."""
     return db.query(Order).order_by(Order.created_at.desc()).all()
 
@@ -90,7 +91,9 @@ def order_detail(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Sipariş bulunamadı.")
-    if order.user_id != current_user.id and current_user.role != UserRole.admin:
+    if order.user_id != current_user.id and not has_permission(
+        current_user.role, Permission.ORDER_READ_ALL
+    ):
         raise HTTPException(status_code=403, detail="Bu siparişe erişim yetkiniz yok.")
     return order
 
@@ -100,7 +103,7 @@ def update_order_status(
     order_id: str,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_permission(Permission.ORDER_UPDATE_STATUS)),
 ):
     """Sipariş durumunu günceller. Sadece Adminler."""
     order = db.query(Order).filter(Order.id == order_id).first()

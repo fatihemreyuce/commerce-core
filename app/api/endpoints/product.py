@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.deps import get_db, require_admin
+from app.core.deps import get_db, require_permission
+from app.core.permissions import Permission
 from app.models.product import Product, ProductVariant
 from app.schemas.product import (
     ProductCreate,
@@ -18,7 +19,7 @@ router = APIRouter()
 def create_product(
     product_in: ProductCreate, 
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin) # SADECE ADMİNLER
+    current_admin: User = Depends(require_permission(Permission.PRODUCT_MANAGE)) # SADECE ADMİNLER
 ):
     """Yeni bir ürün oluşturur. Sadece Adminler yapabilir."""
     
@@ -50,7 +51,7 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
 def delete_product(
     product_id: str, 
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin) # SADECE ADMİNLER
+    current_admin: User = Depends(require_permission(Permission.PRODUCT_MANAGE)) # SADECE ADMİNLER
 ):
     """Sistemden bir ürünü siler. Sadece Adminler yapabilir."""
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -71,7 +72,7 @@ def create_variant(
     product_id: str,
     variant_in: ProductVariantCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_permission(Permission.PRODUCT_MANAGE)),
 ):
     """Bir ürüne varyant (renk/beden/SKU/stok) ekler. Sadece Adminler."""
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -93,7 +94,7 @@ def create_variant(
 def delete_variant(
     variant_id: str,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_permission(Permission.PRODUCT_MANAGE)),
 ):
     """Bir varyantı siler. Sadece Adminler."""
     variant = db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()

@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.deps import get_db, require_admin
+from app.core.deps import get_db, require_permission
+from app.core.permissions import Permission
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryResponse
-from app.models.user import User                  
+from app.models.user import User
 
 router = APIRouter()
 
@@ -13,7 +14,7 @@ router = APIRouter()
 def create_category(
     category_in: CategoryCreate, 
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin) # GÜVENLİK KİLİDİ: Sadece Admin
+    _user: User = Depends(require_permission(Permission.CATEGORY_MANAGE)) # GÜVENLİK KİLİDİ: Sadece Admin
 ):
     """Yeni bir kategori oluşturur (Örn: Elektronik, Giyim). Sadece Adminler yapabilir."""
     
@@ -46,7 +47,7 @@ def update_category(
     category_id: str, 
     category_in: CategoryCreate, 
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin) # GÜVENLİK KİLİDİ: Sadece Admin
+    _user: User = Depends(require_permission(Permission.CATEGORY_MANAGE)) # GÜVENLİK KİLİDİ: Sadece Admin
 ):
     """Kategori bilgilerini günceller. Sadece Adminler yapabilir."""
     category = db.query(Category).filter(Category.id == category_id).first()
@@ -65,7 +66,7 @@ def update_category(
 def delete_category(
     category_id: str, 
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin) # GÜVENLİK KİLİDİ: Sadece Admin
+    _user: User = Depends(require_permission(Permission.CATEGORY_MANAGE)) # GÜVENLİK KİLİDİ: Sadece Admin
 ):
     """Bir kategoriyi sistemden tamamen siler. Sadece Adminler yapabilir."""
     category = db.query(Category).filter(Category.id == category_id).first()

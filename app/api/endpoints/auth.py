@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, require_admin
+from app.core.deps import get_db, require_permission
+from app.core.permissions import Permission
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserLogin, AdminUserCreate
@@ -58,7 +59,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
 def admin_create_user(
     user_in: AdminUserCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_permission(Permission.USER_MANAGE)),
 ):
     """Sadece adminlerin erişebildiği kullanıcı oluşturma (rol seçilebilir)."""
 
