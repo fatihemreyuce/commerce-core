@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user, require_permission
 from app.core.permissions import Permission, has_permission
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.product import ProductVariant

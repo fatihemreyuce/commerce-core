@@ -54,7 +54,11 @@ def get_current_user(
 def require_admin(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    """Sadece 'admin' rolüne sahip kullanıcıların erişimine izin verir."""
+    """Sadece 'admin' rolüne sahip kullanıcıların erişimine izin verir.
+
+    Geriye dönük uyumluluk için tutuluyor; yeni endpoint'ler
+    require_permission(Permission.X) kullanmalı (bkz. permissions.py).
+    """
     if current_user.role != UserRole.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
