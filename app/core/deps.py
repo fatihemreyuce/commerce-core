@@ -8,6 +8,7 @@ from app.core.security import ALGORITHM
 from app.db.session import SessionLocal
 from app.core.config import settings
 from app.models.user import User, UserRole
+from app.core.permissions import Permission, has_permission
 
 # Swagger'da o kilit (Authorize) butonunu çıkaracak olan araç
 security = HTTPBearer()
@@ -58,3 +59,17 @@ def require_admin(
             detail="Bu işlem için yeterli yetkiniz bulunmuyor."
         )
     return current_user
+
+
+def require_permission(permission: Permission):
+    """Belirtilen yetkiye sahip kullanıcıları geçiren dependency üretir."""
+
+    def _checker(current_user: User = Depends(get_current_user)) -> User:
+        if not has_permission(current_user.role, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu işlem için yeterli yetkiniz bulunmuyor.",
+            )
+        return current_user
+
+    return _checker

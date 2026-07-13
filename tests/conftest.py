@@ -103,6 +103,27 @@ def admin_headers(admin_user):
 
 
 @pytest.fixture
+def staff_user(db):
+    user = User(
+        email="staff@test.com",
+        full_name="Staff",
+        hashed_password=get_password_hash("secret123"),
+        role=UserRole.staff,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def staff_headers(staff_user):
+    token = create_access_token(subject=str(staff_user.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
 def make_variant(db):
     def _make(stock=10, base_price="100.00", price_override=None, sku=None):
         cat = Category(name=f"Cat {uuid.uuid4().hex[:6]}", slug=f"cat-{uuid.uuid4().hex[:6]}")
