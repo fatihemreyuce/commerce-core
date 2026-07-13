@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import List, Optional
 from decimal import Decimal
 
@@ -20,6 +20,11 @@ class ProductVariantResponse(ProductVariantBase):
     product_id: uuid.UUID
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("images", mode="before")
+    @classmethod
+    def _default_images(cls, v):
+        return v if v is not None else []
 
 class ProductBase(BaseModel):
     category_id: int
