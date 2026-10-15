@@ -1,18 +1,17 @@
 import sys
-from os.path import dirname, abspath
+from os.path import abspath, dirname
 
 # Uygulama modüllerini bulabilmesi için ana dizini yola ekliyoruz
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
 
+from sqlalchemy import engine_from_config, pool
+
+import app.models  # noqa: F401  (modelleri Base.metadata'ya kaydeder)
+from alembic import context
 from app.core.config import settings
 from app.db.session import Base
-import app.models
-
 
 config = context.config
 

@@ -1,19 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
 
+from app.core.config import settings
 from app.core.deps import get_db, require_permission
 from app.core.permissions import Permission
-from app.core.config import settings
 from app.core.security import (
-    verify_password,
-    get_password_hash,
+    ALGORITHM,
     create_access_token,
     create_refresh_token,
-    ALGORITHM,
+    get_password_hash,
+    verify_password,
 )
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, UserLogin, AdminUserCreate, RefreshRequest
+from app.schemas.user import (
+    AdminUserCreate,
+    RefreshRequest,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 
 router = APIRouter()
 
@@ -57,7 +63,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # noqa: S105
         "user": {
             "id": user.id,
             "email": user.email,
@@ -81,14 +87,14 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         if user_id is None:
             raise credentials_exception
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise credentials_exception
 
     new_access = create_access_token(subject=str(user.id))
-    return {"access_token": new_access, "token_type": "bearer"}
+    return {"access_token": new_access, "token_type": "bearer"}  # noqa: S105
 
 @router.post("/admin/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def admin_create_user(
