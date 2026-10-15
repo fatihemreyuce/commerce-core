@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -24,7 +26,7 @@ from app.schemas.user import (
 router = APIRouter()
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+def register(user_in: UserCreate, db: Annotated[Session, Depends(get_db)]):
     """Yeni kullanıcı kaydı oluşturur."""
     
     user = db.query(User).filter(User.email == user_in.email).first()
@@ -46,7 +48,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @router.post("/login")
-def login(user_in: UserLogin, db: Session = Depends(get_db)):
+def login(user_in: UserLogin, db: Annotated[Session, Depends(get_db)]):
     """Kullanıcı girişi yapar ve JWT Access Token döner."""
     
     user = db.query(User).filter(User.email == user_in.email).first()
@@ -63,7 +65,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer",  # noqa: S105
+        "token_type": "bearer",  # nosec B105 # Bearer is an authentication scheme, not a password.
         "user": {
             "id": user.id,
             "email": user.email,
@@ -73,7 +75,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh")
-def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
+def refresh_token(payload: RefreshRequest, db: Annotated[Session, Depends(get_db)]):
     """Geçerli bir refresh token karşılığında yeni access token üretir."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,13 +96,13 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         raise credentials_exception
 
     new_access = create_access_token(subject=str(user.id))
-    return {"access_token": new_access, "token_type": "bearer"}  # noqa: S105
+    return {"access_token": new_access, "token_type": "bearer"}  # nosec B105 # Bearer is an authentication scheme, not a password.
 
 @router.post("/admin/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def admin_create_user(
     user_in: AdminUserCreate,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(require_permission(Permission.USER_MANAGE)),
+    db: Annotated[Session, Depends(get_db)],
+    _admin: Annotated[User, Depends(require_permission(Permission.USER_MANAGE))],
 ):
     """Sadece adminlerin erişebildiği kullanıcı oluşturma (rol seçilebilir)."""
 

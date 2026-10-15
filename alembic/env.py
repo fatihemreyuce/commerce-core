@@ -1,9 +1,3 @@
-import sys
-from os.path import abspath, dirname
-
-# Uygulama modüllerini bulabilmesi için ana dizini yola ekliyoruz
-sys.path.insert(0, dirname(dirname(abspath(__file__))))
-
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool

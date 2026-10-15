@@ -1,11 +1,13 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_user
-from app.models.user import User
+from app.core.deps import get_current_user, get_db
 from app.models.cart import Cart, CartItem
 from app.models.product import ProductVariant
-from app.schemas.cart import CartResponse, CartItemCreate, CartItemUpdate
+from app.models.user import User
+from app.schemas.cart import CartItemCreate, CartItemUpdate, CartResponse
 from app.utils.pricing import effective_unit_price
 
 router = APIRouter()
@@ -22,7 +24,10 @@ def _get_or_create_cart(db: Session, user: User) -> Cart:
 
 
 @router.get("/", response_model=CartResponse)
-def get_cart(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_cart(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
     """Kullanıcının sepetini getirir (yoksa oluşturur)."""
     return _get_or_create_cart(db, current_user)
 
@@ -30,8 +35,8 @@ def get_cart(db: Session = Depends(get_db), current_user: User = Depends(get_cur
 @router.post("/items", response_model=CartResponse, status_code=status.HTTP_201_CREATED)
 def add_item(
     item_in: CartItemCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Sepete varyant ekler. Aynı varyant zaten varsa adedini artırır."""
     if item_in.quantity < 1:
@@ -67,8 +72,8 @@ def add_item(
 def update_item(
     item_id: str,
     item_in: CartItemUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Sepet satırının adedini günceller."""
     cart = _get_or_create_cart(db, current_user)
@@ -90,8 +95,8 @@ def update_item(
 @router.delete("/items/{item_id}", response_model=CartResponse)
 def remove_item(
     item_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Sepetten bir satırı siler."""
     cart = _get_or_create_cart(db, current_user)
@@ -109,7 +114,10 @@ def remove_item(
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-def clear_cart(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def clear_cart(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
     """Sepeti tamamen boşaltır."""
     cart = _get_or_create_cart(db, current_user)
     db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
